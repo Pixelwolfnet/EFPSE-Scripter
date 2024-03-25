@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EFPSE Scriper</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-javascript.min.js"></script>
+    <style>
+        body {
+            background: transparent !important;
+			color: #D3D3D3; 
+            font-family: 'Lucida Console', Monaco, monospace; 
+        }
+
+        .notepad {
+            background: #BFBFBF;
+            display: block;
+            min-height: 100px;
+            width: 98%;
+            padding: 0;
+            box-shadow: 3px 3px 5px 1px rgba(0,0,0,0.75);
+            border: 4px ridge white;
+            position: relative;
+        }
+
+        .editor-top-bar {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 6px;
+            background-color: #01007A;
+            height: 23px;
+            border: none; 
+        }
+
+        .editor-top-bar button {
+            background: #BFBFBF;
+            border-left: 3px ridge white;
+            border-top: 3px ridge white;
+            border-right: 3px ridge black;
+            border-bottom: 3px ridge black;
+            color: #000000;
+            cursor: pointer;
+            padding: 4px 10px; 
+            margin-right: 5px;
+        }
+
+        .container {
+            display: flex;
+            border-top: 4px ridge rgb(203 213 225); 
+            padding: 0; 
+        }
+
+        .highlight-overlay {
+            position: absolute;
+            display: block;
+            top: 0;
+            left: 30px;
+            width: calc(100% - 35px);
+            margin-top: 20px;
+            margin-left: 9px;
+            width: 95%;
+            pointer-events: none;
+            z-index: 3;
+            overflow: hidden;
+            background-color: rgba(0, 0, 0, 0) !important;
+            background-color:transparent !important;
+            overscroll-behavior: contain;
+            max-height: 100%;
+        }
+
+        .highlight-overlay pre, .highlight-overlay code {
+            background-color: transparent !important;
+        }
+
+        .container__textarea, .container__lines {
+            font-family: monospace;
+            font-size: 16px;
+            line-height: 1.5;
+            padding: 5px;
+        }
+
+        .container__textarea {
+            flex-grow: 1;
+            border: none;
+            overflow: auto;
+            resize: none;
+            margin-left: 10px;
+            border-radius: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        .container__lines {
+            width: 30px;
+            height: 100%;
+            overflow: hidden;
+            text-align: right;
+            padding-right: 5px;
+            margin: 0; 
+            margin-top: 7px; 
+        }
+
+        .container__lines div {
+            display: block;
+            height: 1.5em;
+        }
+
+        .editor-title {
+            float: right;
+            color: #FFF; 
+            align-items: center;
+            width:95%;
+            text-align: right;
+            margin-right: 10px;
+            margin-top: 0px;
+            font-family: 'Lucida Console', Monaco, monospace; 
+        }
+
+        .keyword {
+            color: blue;
+        }
+
+        .operator {
+            color: green;
+        }
+
+        .command {
+            color: purple;
+        }
+
+        .comment {
+            color: gray;
+        }
+
+        .control-flow {
+            color: green;
+        }
+		.fsm-action {
+    color: #28A745; /* Example color for FSM actions */
+}
+    </style>
+</head>
+<body>
+
+<div class="notepad">
+    <div class="editor-top-bar">
+        <button id="new-btn">New</button>
+        <button id="save-btn">Save</button>
+        <button id="open-btn">Open</button>
+        <span class="editor-title">EFPSE Scripter</span><img src="https://pixelwolf.net/favicon-32x32.png" style="padding-top:0px;">
+    </div>
+
+    <div class="container">
+        <div class="highlight-overlay">
+            <pre id="code-block" class="language-efpse"><code id="code-content"></code></pre>
+        </div>
+        <div id="line-numbers" class="container__lines"></div>
+        <textarea id="textarea" class="container__textarea"></textarea>
+    </div>
+</div>
+
+<script>
+// Define the EFPSE language for Prism.js
+Prism.languages.efpse = {
+    'comment': /^\/\/.*$/m,
+    'keyword': /\b(frame|frameset|image|show|hide|timeout|map|auto|pause|halt|keeptrigger|player|entity|door|light|status|give|take|cursor|shader|game|gravity|weapon|HUD|vn|text|font|preload|image|sound|show|bg|hide|play|stop|button|label|move|front|back|bind)\b/i,
+    'variable': /\b(global|map|local)\.\w+/,
+    'symbol': /[$=+\-*/]/,
+    'string': /"(?:\\.|[^\\\r\n"])*"/,
+    'number': /\b\d+\b/,
+    'punctuation': /[.,;]/,
+    'control-flow': /\b(if|else)\b/i,
+    'comparator': /(<=|>=|!=|<|>)/,
+    'command': /\b(light|player)\b/i,
+	'fsm-action': /\b[A-Z]+\b/g,
+    'fsm-action': /\b(DEATH1|DEATH2|DEATH3|LASTDAMAGE|IDLE|RANDOM|INCREMENT|DECREMENT|MULTIPLY|DIVIDE|MODULO|CLAMP|JUMPIFEQUALS|JUMPIFNEQUALS|JUMPIFGEQUALS|JUMPIFLEQUALS|JUMPIFGREATER|JUMPIFLESS|JUMPIFHPLESS|NONE|READY|SOUND|SOUNDANDATTACK|PLAYERSPEED|PARTICLES|CUSTOMPARTICLE|SETVAR|MODELTEXTURE|SPAWN|HUDIMG|CAMSPEED|ATTACK|EXPLOSION|PROJECTILE|GIVEAMMO|TAKEAMMO|SETAMMO|RELOAD|MUZZLEFLASH|SETSTAT|ZOOM)\b/i,
+};
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('textarea');
+    const codeContent = document.getElementById('code-content');
+    const lineNumbersEle = document.getElementById('line-numbers');
+    const newBtn = document.getElementById('new-btn');
+    const saveBtn = document.getElementById('save-btn');
+    const openBtn = document.getElementById('open-btn');
+    const highlightOverlay = document.querySelector('.highlight-overlay');
+
+    const displayLineNumbers = () => {
+        const lines = textarea.value.split('\n');
+        lineNumbersEle.innerHTML = Array.from({
+            length: lines.length,
+        }, (_, i) => `<div>${i + 1}</div>`).join('');
+    };
+
+    const applySyntaxHighlighting = () => {
+        codeContent.textContent = textarea.value;
+        Prism.highlightElement(codeContent, false, null, 'efpse');
+    };
+
+    const adjustOverlayHeight = () => {
+        highlightOverlay.style.maxHeight = textarea.scrollHeight + 'px';
+    };
+
+    const adjustTextareaHeight = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    };
+
+    displayLineNumbers();
+    applySyntaxHighlighting();
+    adjustOverlayHeight();
+    adjustTextareaHeight();
+
+    textarea.addEventListener('input', () => {
+        displayLineNumbers();
+        applySyntaxHighlighting();
+        adjustOverlayHeight();
+        adjustTextareaHeight();
+    });
+
+    textarea.addEventListener('scroll', function() {
+        highlightOverlay.style.transform = `translateY(${-this.scrollTop}px)`;
+    });
+
+    newBtn.addEventListener('click', () => {
+        textarea.value = '';
+        displayLineNumbers();
+        applySyntaxHighlighting();
+        adjustOverlayHeight();
+        adjustTextareaHeight();
+    });
+
+saveBtn.addEventListener('click', () => {
+    const text = textarea.value;
+    let filename = prompt("Please enter the filename", "script.script");
+    // Check if the filename has an extension and if not, append .state
+    if (!filename.includes('.')) {
+        filename += '.state';
+    }
+    if (filename) {
+        const blob = new Blob([text], {type: "text/plain;charset=utf-8"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+});
+
+openBtn.addEventListener('click', () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    // Initially, do not specify the accept attribute to default to all file types
+    // fileInput.accept = '.script,.state'; // Commented out to default to all file types
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                textarea.value = e.target.result;
+                displayLineNumbers();
+                applySyntaxHighlighting();
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+                adjustOverlayHeight();
+            };
+            reader.readAsText(file);
+        }
+    };
+    fileInput.click();
+});
+
+
+});
+</script>
+
+</body>
+</html>
